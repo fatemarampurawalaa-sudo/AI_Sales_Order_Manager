@@ -112,7 +112,7 @@ Also 3 BBQ tongs - handle melted after first use. No photo sorry. Smoky Grill Re
 @st.cache_data
 def build_sales():
     np.random.seed(42)
-    months = pd.DataFrame({"month": pd.date_range("2025-11-01", periods=12, freq="MS")})
+    months = pd.DataFrame({"month": pd.date_range("2024-11-01", periods=24, freq="MS")})   # 2 years of history
     season = {11: 1.3, 12: 1.6, 1: 1.7, 2: 1.5, 3: 1.2, 4: 0.8, 5: 0.5, 6: 0.3, 7: 0.3, 8: 0.3, 9: 0.5, 10: 0.9}
     months["season_factor"] = months["month"].dt.month.map(season)
     base_qty = {"GR-P01": 10, "GR-K02": 3, "GR-L03": 1, "GR-G04": 0.5, "CH-L03": 80, "CH-L05": 60, "CH-L10": 25,
@@ -420,7 +420,8 @@ for key, value in defaults.items():
 ss = st.session_state
 
 sales = build_sales()
-promo = promo_table(sales)
+sales12 = sales[sales["month"] >= "2025-11-01"]          # last 12 months
+promo = promo_table(sales12)
 error_pct, dec_base = build_forecast(sales)
 offers_df = guard_offers(ss.offers, promo) if ss.offers else None
 approved = (offers_df[offers_df["status"] == "✅ Approved"][["code", "discount_pct"]]
@@ -441,7 +442,7 @@ st.caption("BBQ grills & charcoal wholesaler, UAE · Promotions → Customer LPO
 st.warning("⚠️ Demo project with made-up data. Demo date: 18 Nov 2026 (start of BBQ & camping season).")
 
 k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("💰 Revenue, last 12 months", f"AED {sales['revenue_aed'].sum()/1e6:.2f}M")
+k1.metric("💰 Revenue, last 12 months", f"AED {sales12['revenue_aed'].sum()/1e6:.2f}M")
 k2.metric("📈 December forecast", f"AED {dec['revenue_aed'].sum()/1e3:,.0f}K", f"model accuracy {100 - error_pct:.0f}%")
 k3.metric("🎁 Products needing a promo", int(promo["needs_promo"].sum()))
 k4.metric("🧾 Orders confirmed", len(ss.orders), f"AED {sum(o['total'] for o in ss.orders):,.0f}")
@@ -458,11 +459,11 @@ with tab_dash:
         fc = pd.DataFrame({"month": [pd.Timestamp("2026-12-01")], "revenue_aed": [dec["revenue_aed"].sum()], "type": ["Forecast"]})
         fig = px.bar(pd.concat([monthly, fc]), x="month", y="revenue_aed", color="type",
                      color_discrete_map={"Actual": "#e8590c", "Forecast": "#868e96"},
-                     title="Monthly revenue (AED): BBQ season Nov–Mar + December forecast")
+                     title="Monthly revenue (AED), last 2 years: BBQ season Nov–Mar + December forecast")
         fig.update_layout(height=380, margin=dict(t=50, b=10), legend_title=None)
         st.plotly_chart(fig, use_container_width=True)
     with right:
-        by_cat = sales.groupby("category", as_index=False)["profit_aed"].sum()
+        by_cat = sales12.groupby("category", as_index=False)["profit_aed"].sum()
         fig2 = px.pie(by_cat, names="category", values="profit_aed", hole=0.5, title="Profit by category",
                       color_discrete_sequence=["#e8590c", "#343a40", "#fab005"])
         fig2.update_layout(height=380, margin=dict(t=50, b=10))
@@ -687,7 +688,7 @@ with tab_plan:
     f1.metric("🧪 Forecast accuracy (tested on unseen months)", f"{100 - error_pct:.1f}%")
     f2.metric("📈 December revenue forecast", f"AED {dec['revenue_aed'].sum():,.0f}")
     f3.metric("💰 December profit forecast", f"AED {dec['profit_aed'].sum():,.0f}")
-    st.caption("Random Forest model trained on 12 months of sales (Nov–Jul to train, Aug–Oct to test), "
+    st.caption("Random Forest model trained on 2 years of sales (up to Jul 2026 to train, Aug–Oct 2026 to test), "
                "then retrained on all months. Approved promotions add +2% sales per 1% discount.")
     st.dataframe(dec[["code", "product", "forecast_qty", "discount_pct", "qty_with_promo", "revenue_aed", "profit_aed", "available", "stock_gap"]],
                  hide_index=True, use_container_width=True)
